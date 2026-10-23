@@ -1,0 +1,63 @@
+flowchart TD
+    AppTier["Spring Boot Microservices Cluster"] --> Router["Shard Router & Read-Write Proxy Layer"]
+
+    subgraph ShardClusterA["Physical Shard Cluster A (Hash Range 0-33%)"]
+        subgraph PrimaryA["Primary DB A (Writes)"]
+            MasterA["Logical Orders Table"]
+            PartA1[("Partition 2026_Q1")]
+            PartA2[("Partition 2026_Q2")]
+            MasterA --> PartA1
+            MasterA --> PartA2
+        end
+        subgraph ReplicaA["Standby DB A (Reads)"]
+            RepMasterA["Logical Orders Replica"]
+            RepPartA1[("Partition 2026_Q1")]
+            RepPartA2[("Partition 2026_Q2")]
+            RepMasterA --> RepPartA1
+            RepMasterA --> RepPartA2
+        end
+        PrimaryA ==>|Streaming WAL Replication| ReplicaA
+    end
+
+    subgraph ShardClusterB["Physical Shard Cluster B (Hash Range 34-66%)"]
+        subgraph PrimaryB["Primary DB B (Writes)"]
+            MasterB["Logical Orders Table"]
+            PartB1[("Partition 2026_Q1")]
+            PartB2[("Partition 2026_Q2")]
+            MasterB --> PartB1
+            MasterB --> PartB2
+        end
+        subgraph ReplicaB["Standby DB B (Reads)"]
+            RepMasterB["Logical Orders Replica"]
+            RepPartB1[("Partition 2026_Q1")]
+            RepPartB2[("Partition 2026_Q2")]
+            RepMasterB --> RepPartB1
+            RepMasterB --> RepPartB2
+        end
+        PrimaryB ==>|Streaming WAL Replication| ReplicaB
+    end
+
+    subgraph ShardClusterC["Physical Shard Cluster C (Hash Range 67-100%)"]
+        subgraph PrimaryC["Primary DB C (Writes)"]
+            MasterC["Logical Orders Table"]
+            PartC1[("Partition 2026_Q1")]
+            PartC2[("Partition 2026_Q2")]
+            MasterC --> PartC1
+            MasterC --> PartC2
+        end
+        subgraph ReplicaC["Standby DB C (Reads)"]
+            RepMasterC["Logical Orders Replica"]
+            RepPartC1[("Partition 2026_Q1")]
+            RepPartC2[("Partition 2026_Q2")]
+            RepMasterC --> RepPartC1
+            RepMasterC --> RepPartC2
+        end
+        PrimaryC ==>|Streaming WAL Replication| ReplicaC
+    end
+
+    Router -->|Write: customer_id in Hash Range A| PrimaryA
+    Router -->|Read: customer_id in Hash Range A| ReplicaA
+    Router -->|Write: customer_id in Hash Range B| PrimaryB
+    Router -->|Read: customer_id in Hash Range B| ReplicaB
+    Router -->|Write: customer_id in Hash Range C| PrimaryC
+    Router -->|Read: customer_id in Hash Range C| ReplicaC

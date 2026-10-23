@@ -1,0 +1,23 @@
+flowchart TD
+    Client["Client Request (REST / gRPC)"] --> Service["Spring Boot Service Layer"]
+
+    subgraph AppTier["Application Layer (Spring Boot Data Routing)"]
+        TxAnnotation{"@Transactional Check"}
+        Service --> TxAnnotation
+        TxAnnotation -->|readOnly = false| WriteCtx["Set Context: DatabaseType.PRIMARY"]
+        TxAnnotation -->|readOnly = true| ReadCtx["Set Context: DatabaseType.REPLICA"]
+
+        WriteCtx --> RoutingDS["AbstractRoutingDataSource"]
+        ReadCtx --> RoutingDS
+
+        RoutingDS -->|Context = PRIMARY| PoolPrimary["HikariCP Pool (Primary Writer)"]
+        RoutingDS -->|Context = REPLICA| PoolReplica["HikariCP Pool (Replica Readers - Round Robin)"]
+    end
+
+    subgraph DatabaseCluster["Physical Database Topology"]
+        PoolPrimary -->|Writes / Critical Reads| PrimaryDB[("Primary Database (PostgreSQL/MySQL)")]
+        PoolReplica -->|Read Queries| Replica1[("Read Replica 1")]
+        PoolReplica -->|Read Queries| Replica2[("Read Replica 2")]
+        PrimaryDB -.->|Replication Stream| Replica1
+        PrimaryDB -.->|Replication Stream| Replica2
+    end

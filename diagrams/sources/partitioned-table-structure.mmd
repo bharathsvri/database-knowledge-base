@@ -1,0 +1,24 @@
+flowchart TD
+    ClientQuery["Application Query: SELECT * FROM orders WHERE order_date BETWEEN '2026-02-01' AND '2026-02-15'"] --> Optimizer["PostgreSQL Query Optimizer"]
+
+    subgraph LogicalTable["Logical Master Table (PostgreSQL Declarative Partitioning)"]
+        Master["orders (Logical Table) <br/> PARTITION BY RANGE (order_date)"]
+    end
+
+    Optimizer --> Master
+
+    subgraph EngineOptimization["Partition Pruning Engine"]
+        Optimizer --> PruningCheck{"Constraint Exclusion / Partition Pruning: <br/> Exclude partitions where order_date cannot match"}
+    end
+
+    subgraph PhysicalPartitions["Physical Child Partitions on Disk"]
+        Part202601[("orders_2026_01 <br/> Range: ['2026-01-01', '2026-02-01')")]
+        Part202602[("orders_2026_02 <br/> Range: ['2026-02-01', '2026-03-01')")]
+        Part202603[("orders_2026_03 <br/> Range: ['2026-03-01', '2026-04-01')")]
+        PartDefault[("orders_default <br/> DEFAULT Catch-All Partition")]
+    end
+
+    PruningCheck -.->|Pruned / Skipped - Zero I/O| Part202601
+    PruningCheck ==>|Targeted Table Scan / Index Scan| Part202602
+    PruningCheck -.->|Pruned / Skipped - Zero I/O| Part202603
+    PruningCheck -.->|Pruned / Skipped - Zero I/O| PartDefault

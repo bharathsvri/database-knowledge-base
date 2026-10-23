@@ -1,0 +1,43 @@
+flowchart TD
+    subgraph ClientLayer["Application Tier (Java / Spring Boot)"]
+        AppWrite["Write Traffic (@Transactional readOnly=false)"]
+        AppRead["Read Traffic (@Transactional readOnly=true)"]
+    end
+
+    subgraph PrimaryCluster["Primary Database Node (Read/Write)"]
+        PrimaryEngine["PostgreSQL / MySQL Primary Engine"]
+        WAL["Write-Ahead Log (WAL) Engine"]
+        PrimaryStorage[("Local Physical Storage")]
+        PrimaryEngine -->|1. Write Transaction| WAL
+        WAL -->|2. Flush Data Pages| PrimaryStorage
+    end
+
+    subgraph ReplicationChannel["WAL Replication Stream"]
+        SyncStream["Synchronous Stream (Zero Data Loss / Higher Latency)"]
+        AsyncStream["Asynchronous Stream (Low Latency / Lag Potential)"]
+    end
+
+    subgraph ReplicaNodes["Standby / Read Replica Cluster"]
+        subgraph Replica1["Replica 1 (Synchronous Standby)"]
+            RepWAL1["WAL Receiver & Startup Replay Worker"]
+            RepStorage1[("Replica 1 Storage")]
+            RepWAL1 -->|Apply WAL| RepStorage1
+        end
+
+        subgraph Replica2["Replica 2 (Asynchronous Read Standby)"]
+            RepWAL2["WAL Receiver & Startup Replay Worker"]
+            RepStorage2[("Replica 2 Storage")]
+            RepWAL2 -->|Apply WAL| RepStorage2
+        end
+    end
+
+    AppWrite -->|TCP 5432 / 3306| PrimaryEngine
+    AppRead -->|Load-Balanced Read Query| RepStorage1
+    AppRead -->|Load-Balanced Read Query| RepStorage2
+
+    PrimaryEngine -->|WAL Sender Process| SyncStream
+    PrimaryEngine -->|WAL Sender Process| AsyncStream
+
+    SyncStream --> RepWAL1
+    AsyncStream --> RepWAL2
+    RepWAL1 -.->|Sync ACK (Flush LSN)| PrimaryEngine

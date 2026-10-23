@@ -1,0 +1,29 @@
+flowchart TD
+    AppRequest["Incoming Application Request: userId = 'CUST-88392'"] --> ShardService["Customer Service Layer"]
+
+    subgraph ShardResolution["Shard Key Evaluation & Resolution"]
+        ShardKeyExt["Extract Shard Key: customer_id = 'CUST-88392'"]
+        HashFunc["Consistent Hash Algorithm: MurmurHash3(key) % 3"]
+        ShardKeyExt --> HashFunc
+        HashFunc --> RoutingDecision{"Determined Shard ID: SHARD_2"}
+    end
+
+    ShardService --> ShardResolution
+
+    subgraph SpringRoutingTier["Spring Boot Routing Infrastructure"]
+        RoutingDecision --> ShardContextHolder["ShardContextHolder.setCurrentShard('SHARD_2')"]
+        ShardContextHolder --> ShardRoutingDS["ShardRoutingDataSource extends AbstractRoutingDataSource"]
+        ShardRoutingDS --> LookupKey["determineCurrentLookupKey() returns 'SHARD_2'"]
+    end
+
+    subgraph ShardConnectionPools["Target Connection Pools (HikariCP)"]
+        LookupKey --> Pool1["HikariCP Pool: Shard 1 (Hash 0)"]
+        LookupKey --> Pool2["HikariCP Pool: Shard 2 (Hash 1)"]
+        LookupKey --> Pool3["HikariCP Pool: Shard 3 (Hash 2)"]
+    end
+
+    subgraph DatabaseShards["Independent Physical Database Instances"]
+        Pool1 --> DBShard1[("PostgreSQL Shard 1 (customers 0..N)")]
+        Pool2 --> DBShard2[("PostgreSQL Shard 2 (customers N+1..M)")]
+        Pool3 --> DBShard3[("PostgreSQL Shard 3 (customers M+1..K)")]
+    end

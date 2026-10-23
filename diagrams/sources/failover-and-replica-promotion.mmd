@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    participant App as Spring Boot Application
+    participant Primary as Primary Node (DB-01)
+    participant DCS as Consensus / DCS (etcd / Consul)
+    participant Monitor as HA Manager (Patroni / Orchestrator)
+    participant Replica as Standby Replica (DB-02)
+
+    Note over Primary,Replica: Steady State: Streaming WAL Replication
+    Primary->>DCS: Heartbeat Lease Renewal (TTL: 10s)
+    Primary->>Replica: Physical WAL Streaming
+
+    Note over Primary: Primary Node Hardware or Network Failure occurs!
+    Primary--x DCS: Heartbeat Lease Expires (Loss of Leadership)
+    Monitor->>DCS: Detect Lease Expiration
+    Monitor->>Primary: Fencing / STONITH (Ensure Dead to prevent Split-Brain)
+
+    Note over Monitor,Replica: Elect Promotion Candidate
+    Monitor->>Replica: Query Latest Received WAL LSN
+    Monitor->>Replica: Issue Promotion Trigger (pg_promote / touch trigger_file)
+    Replica->>Replica: Exit Recovery Mode & Accept Writes (Read-Write Mode)
+    Replica->>DCS: Acquire Primary Leader Lock
+
+    Note over App,Replica: Application Service Discovery Update
+    DCS-->>App: DNS / VIP / Service Discovery Update (New Primary IP: DB-02)
+    App->>Replica: Reconnect HikariCP & Resume Write Transactions
