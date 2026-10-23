@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  pg-primary:
+    image: postgres:16-alpine
+    container_name: pg-primary
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: app_admin
+      POSTGRES_PASSWORD: AdminSuperSecretPassword123!
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./primary-init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=10
+      -c max_replication_slots=10
+      -c wal_keep_size=1024MB
+      -c hot_standby=on
+      -c listen_addresses='*'
+    networks:
+      - pg-replication-net
+
+  pg-replica:
+    image: postgres:16-alpine
+    container_name: pg-replica
+    depends_on:
+      - pg-primary
+    environment:
+      PGPASSWORD: ReplicatorSecretPassword123!
+    ports:
+      - "5433:5432"
+    command: >
+      sh -c "
+      until pg_isready -h pg-primary -p 5432 -U app_admin; do echo waiting for primary; sleep 1; done;
+      rm -rf /var/lib/postgresql/data/*;
+      pg_basebackup -h pg-primary -p 5432 -U replicator -D /var/lib/postgresql/data -Fp -Xs -R -v;
+      exec postgres
+      "
+    networks:
+      - pg-replication-net
+
+networks:
+  pg-replication-net:
+    driver: bridge
