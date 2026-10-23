@@ -75,7 +75,7 @@ flowchart TD
 - **Failover & High Availability:** How this concept behaves during node crashes.
 
 ## 9. Related Interview Questions
-- [Link to question in interview folder](../../database-interview-questions/...)
+- [Link to interview questions](../database-interview-questions/README.md)
 - *Key talking point to highlight in an interview setting.*
 
 ## 10. Authoritative References
