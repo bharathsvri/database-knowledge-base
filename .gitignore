@@ -1,0 +1,35 @@
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor Configuration
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# Java / Maven / Gradle Build Artifacts
+target/
+build/
+.gradle/
+*.class
+*.jar
+*.war
+
+# Database Logs & Dump Files
+*.dump
+*.dump.gpg
+*.sql.gz
+*.tar.gz
+*.log
+/data/
+/pg_wal/
+/pg_data/
+/mysql_data/
+
+# Docker & Container Mounts
+.docker/
+docker-compose.override.yml
